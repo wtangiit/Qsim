@@ -236,7 +236,8 @@ class Job (ForeignData):
     fields = ForeignData.fields + [
         "nodes", "location", "jobid", "state", "index", "walltime", "queue", "user", "submittime", 
         "starttime", "project", 'is_runnable', 'is_active', 'has_resources', "score", 'attrs', 
-        'walltime_p',   #*AdjEst*  
+        'walltime_p',   #*AdjEst*
+        'self.io_amount', 'self.io_type', 'self.io_ratio', 'self.io_pattern',
     ]
     
     def __init__ (self, spec):
@@ -261,6 +262,10 @@ class Job (ForeignData):
         self.has_resources = spec.pop("has_resources", None)
         self.score = spec.pop("score", 0.0)
         self.attrs = spec.pop("attrs", {})
+        self.io_amount = spec.pop("io_amount", 0)
+        self.io_type = spec.pop("io_type", 0)
+        self.io_ratio = spec.pop("io_ratio", 0)
+        self.io_pattern = spec.pop("io_pattern", 0)
         
         logger.info("Job %s/%s: Found job" % (self.jobid, self.user))
 
@@ -273,6 +278,7 @@ class JobDict(ForeignDataDict):
                   'walltime', 'queue', 'user', 'submittime', 'starttime', 'project',
                   'is_runnable', 'is_active', 'has_resources', 'score', 'attrs', 
                   'walltime_p',  #*AdjEst*
+                  'self.io_amount', 'self.io_type', 'self.io_ratio', 'self.io_pattern',
                   ]
     def __init__(self, queue_manager_name):
         self.queue_manager_name = queue_manager_name
@@ -350,7 +356,6 @@ class BGSched (Component):
         self.sync_state = Cobalt.Util.FailureMode("Foreign Data Sync")
         self.active = True
         self.get_current_time = time.time
-         
     
     def __getstate__(self):
         return {'reservations':self.reservations, 'version':1,

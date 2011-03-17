@@ -233,6 +233,10 @@ class Job (Data):
                             "attr",
                             "score",
                             "remain_time",    
+                            "io_amount",
+                            "io_type",
+                            "io_ratio",
+                            "io_pattern",
                             ]    
 
     def __init__(self, spec):
@@ -272,6 +276,12 @@ class Job (Data):
         #self.checkpoint = 1
         self.recovering = False
         self.location = []
+        
+        #io related attribute
+        self.io_amount = spec.get('io_amount', 0)
+        self.io_type = spec.get('io_type', 0)
+        self.io_ratio = spec.get('io_ratio', 0)
+        self.io_pattern = spec.get('io_pattern', 0)
 
 class JobList(DataList):
     '''the list of job objects'''
