@@ -224,6 +224,10 @@ class BGQsim(Simulator):
         if not self.cluster_job_trace:
             #Var = raw_input("press any Enter to continue...")
             pass
+        
+    def get_outputlog_string(self):
+        return self.output_log
+    get_outputlog_string = exposed(get_outputlog_string)
             
 ##### simulation related
     def get_current_time(self):

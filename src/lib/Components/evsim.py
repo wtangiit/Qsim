@@ -301,6 +301,9 @@ class EventSimulator(Component):
             
     init_iomon_events = exposed(init_iomon_events)
     
+    def init_iomon_logger(self):
+        self.iomon.init_iomon_logger()
+    
     def print_events(self):
         print "total events:", len(self.event_list) 
         i = 0

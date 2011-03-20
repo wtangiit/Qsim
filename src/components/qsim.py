@@ -108,7 +108,8 @@ def integrated_main(options):
     if opts.iomon:
         print "inserting iomon events into event list..."
         evsim.init_iomon_events()
-
+        evsim.init_iomon_logger()
+        
     if opts.batch:
         print "simulation started"
     else:
