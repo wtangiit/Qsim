@@ -27,6 +27,7 @@ from Cobalt.Components.bgsched import BGSched
 from Cobalt.Components.base import Component, exposed, automatic, query, locking
 from Cobalt.Components.cqm import QueueDict, Queue
 from Cobalt.Components.simulator import Simulator
+from Cobalt.Components.iomonitor import IOmonitor
 from Cobalt.Data import Data, DataList
 from Cobalt.Exceptions import ComponentLookupError
 from Cobalt.Proxy import ComponentProxy, local_components
@@ -39,7 +40,9 @@ no_of_machine = 2
 INTREPID = 0
 EUREKA = 1
 BOTH = 2
+IOMON = 3
 UNHOLD_INTERVAL = 1200
+IOMON_INTERVAL = 60
 
 SHOW_SCREEN_LOG = False
 
@@ -136,6 +139,7 @@ class EventSimulator(Component):
                 
         self.bgsched = Sim_bg_Sched(**kwargs)
         self.csched = Sim_Cluster_Sched()
+        self.iomon =  IOmonitor()
         self.go_next = True
         
     def set_go_next(self, bool_value):
@@ -274,8 +278,28 @@ class EventSimulator(Component):
             evspec['datetime'] = sec_to_date(unhold_point)
             self.add_event(evspec)
             
-            unhold_point += UNHOLD_INTERVAL + machine_id
-    init_unhold_events = exposed(init_unhold_events)        
+            unhold_point += UNHOLD_INTERVAL
+    init_unhold_events = exposed(init_unhold_events)
+    
+    def init_iomon_events(self):
+        """add IO monitor points into time stamps"""
+        if not self.event_list:
+            return
+        
+        first_time_sec = self.event_list[1]['unixtime']
+        last_time_sec = self.event_list[-1]['unixtime']
+        machine_id = IOMON
+        
+        iomon_point = first_time_sec + IOMON_INTERVAL
+        while iomon_point < last_time_sec:
+            evspec = {}
+            evspec['machine'] = machine_id
+            evspec['unixtime'] = iomon_point
+            evspec['datetime'] = sec_to_date(iomon_point)
+            self.add_event(evspec)
+            iomon_point += IOMON_INTERVAL
+            
+    init_iomon_events = exposed(init_iomon_events)
     
     def print_events(self):
         print "total events:", len(self.event_list) 
@@ -294,18 +318,13 @@ class EventSimulator(Component):
             self.clock_increment()
              
         machine = self.get_current_event_machine()
-#        print "[%s]: %s, machine=%s, event=%s, job=%s" % (
-#                                            self.implementation,
-#                                            self.get_current_date_time(), 
-#                                            self.get_current_event_machine(), 
-#                                            self.get_current_event_type(),
-#                                            self.get_current_event_job(),
-#                                            )
 
         if machine == INTREPID:
             self.bgsched.schedule_jobs()
         if machine == EUREKA:
             self.csched.schedule_jobs()
+        if machine == IOMON:
+            self.iomon.monitor_io()
         
         if self.go_next:
             ComponentProxy("queue-manager").calc_loss_of_capacity()
