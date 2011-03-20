@@ -1733,21 +1733,7 @@ class BGQsim(Simulator):
         print progress_bar
         if self.sleep_interval:
             time.sleep(self.sleep_interval)
-            
-#        wait_jobs = [job for job in self.queues.get_jobs([{'is_runnable':True}])]
-#        
-#        if wait_jobs:
-#            wait_jobs.sort(self.utilitycmp)
-#            top_jobs = wait_jobs[0:5]
-#        else:
-#            top_jobs = []    
-#            
-#        if top_jobs:
-#            print "high priority waiting jobs: ", [(job.jobid, job.nodes) for job in top_jobs]
-#        else:
-#            print "hig priority waiting jobs:"
 
-        #print "holding jobs: ", [(k,v[0].split("-")[-1]) for k, v in self.job_hold_dict.iteritems()]
         print "\n\n"
         
     def post_simulation_handling(self):
@@ -1758,3 +1744,18 @@ class BGQsim(Simulator):
         self.dbglog.LogMessage(msg)
         pass
     post_simulation_handling = exposed(post_simulation_handling)    
+    
+    
+    ### io-aware job scheduling related stuff########
+    def get_running_job_io_usage(self):
+        """calculate aggregate I/O comsumption of all running jobs"""
+        bandwidth = 0
+        for runningjob in self.running_jobs:
+            bandwidth += 1
+        return bandwidth
+    get_running_job_io_usage = exposed(get_running_job_io_usage)
+            
+        
+        
+    
+    
