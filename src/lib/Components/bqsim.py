@@ -24,10 +24,12 @@ from Cobalt.Components.qsim_base import *
 from Cobalt.Components.base import exposed, query, automatic, locking
 from Cobalt.Components.cqm import QueueDict, Queue
 from Cobalt.Components.simulator import Simulator
+from Cobalt.Components.iomonitor import MAX_SYSTEM_IO_CAPACITY, MAX_PER_NODE_IO_CAPACITY
 from Cobalt.Data import Data, DataList
 from Cobalt.Exceptions import ComponentLookupError
 from Cobalt.Proxy import ComponentProxy, local_components
 from Cobalt.Server import XMLRPCServer, find_intended_location
+
 
 REMOTE_QUEUE_MANAGER = "cluster-queue-manager"
 
@@ -1753,13 +1755,12 @@ class BGQsim(Simulator):
     ### io-aware job scheduling related stuff########
     def get_running_job_io_usage(self):
         """calculate aggregate I/O comsumption of all running jobs"""
-        bandwidth = 0
+        total_bandwidth = 0
         for runningjob in self.running_jobs:
-            bandwidth += 1
-        return bandwidth
+            node = int(runningjob.nodes)
+            total_bandwidth += MAX_PER_NODE_IO_CAPACITY * node
+            
+        return total_bandwidth
     get_running_job_io_usage = exposed(get_running_job_io_usage)
             
-        
-        
-    
-    
+ 
