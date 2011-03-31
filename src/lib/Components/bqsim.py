@@ -296,6 +296,10 @@ class BGQsim(Simulator):
                 (timestamp, spec['jobid'], spec['queue'], spec['submittime'], spec['nodes'], log_walltime, spec['start_time'], 
                  round(float(spec['end_time']), 1), ":".join(spec['location']),
                  spec['runtime'], spec['hold_time'], overhead)
+            elif eventtype == "O": #starting I/O
+                message = "%s;O;%s;queue=%s qtime=%s Resource_List.nodect=%s Resource_List.walltime=%s start=%s compend=%f exec_host=%s comp_ratio=%s" % \
+                (timestamp, spec['jobid'], spec['queue'], spec['submittime'], spec['nodes'], log_walltime, spec['start_time'], 
+                 date_to_sec(timestamp), ":".join(spec['location']), 1 - spec['io_ratio'],)
             else:
                 print "invalid event type, type=", eventtype
                 return
@@ -455,7 +459,7 @@ class BGQsim(Simulator):
                         
             cur_event = self.event_manager.get_current_event_type()
                         
-            if cur_event in ["Q", "E"]:
+            if cur_event in ["Q", "E", "e"]:
                 self.update_job_states(specs, {}, cur_event)
             
             self.compute_utility_scores()
@@ -535,6 +539,19 @@ class BGQsim(Simulator):
                 self.queues.del_jobs([{'jobid':int(Id)}])
                 self.num_running -= 1
                 self.num_end += 1
+                
+            elif cur_event == "e":  # Job (Id) complete computing, start doing I/O
+                io_job = self.get_live_job_by_id(Id)
+                
+                if io_job == None:
+                    continue
+                
+                io_job.doing_io = True
+                
+                #log the job end event
+                jobspec = io_job.to_rx()                
+                self.log_job_event("O", self.get_current_time_date(), jobspec)
+                                
         
         if not self.cluster_job_trace and not self.batch:
             os.system('clear')
@@ -684,9 +701,16 @@ class BGQsim(Simulator):
         if jobspec['last_hold'] > 0:
             updates['hold_time'] = jobspec['hold_time'] + self.get_current_time_sec() - jobspec['last_hold']
              
-        #determine whether the job is going to fail before completion
+        
         location = newattr['location']
         duration = jobspec['remain_time']
+        
+        io_ratio = jobspec.get('io_ratio', 0)
+        if io_ratio > 0:
+            comput_time = duration * (1 - io_ratio)
+            comp_end = start + comput_time
+            self.insert_time_stamp(comp_end, "e", {'jobid':jobspec['jobid']})
+        
         
         end = start + duration
         updates['end_time'] = end

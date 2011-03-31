@@ -44,7 +44,7 @@ OPT_RULE = "A1"  # A0, A1, A2, A3, A4, NORMAL, EVEN
 RECOVERYOPT = 2 # by default, the failed job is sent back to the rear of the queue
 CHECKPOINT = False  #not used in this version
 MTTR = 3600   #time to repair partition(in sec), a failed partition will be available again in MTTR seconds,
-SET_event = set(['I', 'Q', 'S', 'E', 'F', 'R', 'U'])
+SET_event = set(['I', 'Q', 'S', 'E', 'F', 'R', 'U', 'e'])
 
 PRINT_SCREEN = True
 
@@ -236,7 +236,9 @@ class Job (Data):
                             "io_amount",
                             "io_type",
                             "io_ratio",
+                            "doing_io",
                             "io_pattern",
+                            "comp_time",                           
                             ]    
 
     def __init__(self, spec):
@@ -280,8 +282,10 @@ class Job (Data):
         #io related attribute
         self.io_amount = spec.get('io_amount', 0)
         self.io_type = spec.get('io_type', 0)
-        self.io_ratio = spec.get('io_ratio', 0)
+        self.io_ratio = spec.get('io_ratio', 0.2)
+        self.doing_io = spec.get('doing_io', 0)
         self.io_pattern = spec.get('io_pattern', 0)
+        self.comp_time = spec.get('comp_time', 0)
 
 class JobList(DataList):
     '''the list of job objects'''
