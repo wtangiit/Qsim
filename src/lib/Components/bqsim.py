@@ -1782,7 +1782,12 @@ class BGQsim(Simulator):
         total_bandwidth = 0
         for runningjob in self.running_jobs:
             node = int(runningjob.nodes)
-            total_bandwidth += MAX_PER_NODE_IO_CAPACITY * node
+            doing_io = runningjob.doing_io
+            if doing_io:
+                total_bandwidth += MAX_PER_NODE_IO_CAPACITY * node
+                print runningjob.jobid, "is doing io"
+            else:
+                print runningjob.jobid, "is not doing io"
             
         return total_bandwidth
     get_running_job_io_usage = exposed(get_running_job_io_usage)
