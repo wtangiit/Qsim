@@ -176,6 +176,20 @@ class EventSimulator(Component):
         return pos
     add_event = exposed(add_event)
     
+    def adjust_event_time(self, eventtype, old_time, new_time):
+        '''change the time stamp of an event from old_time to new_time'''
+        print "adjusting event time: old_time = %s, new_time = %s" % (old_time, new_time)
+        pos = self.events_length()
+        while old_time < self.event_list[pos-1].get('unixtime'):
+            pos = pos - 1
+        current_event = self.event_list[pos-1]
+        if current_event.get('unixtime') == old_time and current_event.get('type'):
+            new_event = copy.deepcopy(current_event)
+            current_event['type'] = "x"
+            new_event['unixtime'] = new_time
+            self.add_event(new_event)
+    adjust_event_time = exposed(adjust_event_time)   
+            
     def get_time_span(self):
         '''return the whole time span'''
         starttime = self.event_list[1].get('unixtime')

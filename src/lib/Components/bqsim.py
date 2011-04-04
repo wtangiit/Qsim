@@ -255,7 +255,7 @@ class BGQsim(Simulator):
         evspec['unixtime'] = timestamp
         evspec['machine'] = MACHINE_ID
         evspec['location'] = info.get('location', [])
-        
+
         self.event_manager.add_event(evspec)
         
     def log_job_event(self, eventtype, timestamp, spec):
@@ -455,7 +455,8 @@ class BGQsim(Simulator):
             #enter a scheduling iteration
             
             #clear yielding job list
-            del self.yielding_job_list[:]
+            if self.coscheduling:
+                del self.yielding_job_list[:]
                         
             cur_event = self.event_manager.get_current_event_type()
                         
@@ -476,6 +477,10 @@ class BGQsim(Simulator):
             if cur_event == "C":
                  if self.job_hold_dict.keys():
                     self.unhold_all()
+
+            #outdated event, ignore                    
+            if cur_event == "O":
+                pass
                 
         self.event_manager.set_go_next(True)
         
@@ -1780,16 +1785,28 @@ class BGQsim(Simulator):
     def get_running_job_io_usage(self):
         """calculate aggregate I/O comsumption of all running jobs"""
         total_bandwidth = 0
+        iojobs = []
+                
         for runningjob in self.running_jobs:
             node = int(runningjob.nodes)
             doing_io = runningjob.doing_io
             if doing_io:
                 total_bandwidth += MAX_PER_NODE_IO_CAPACITY * node
+                iojobs.append(runningjob)
                 print runningjob.jobid, "is doing io"
             else:
                 print runningjob.jobid, "is not doing io"
+                
+        rate = total_bandwidth / MAX_SYSTEM_IO_CAPACITY        
+        print "rate=",rate
+        if rate > 1:
+            for iojob in iojobs:
+                old_endtime = iojob.end_time
+                new_endtime = old_endtime + 60*(rate-1)
+                iojob.end_time = new_endtime
+                self.event_manager.adjust_event_time("E", old_endtime, new_endtime)    
             
         return total_bandwidth
     get_running_job_io_usage = exposed(get_running_job_io_usage)
-            
+              
  
