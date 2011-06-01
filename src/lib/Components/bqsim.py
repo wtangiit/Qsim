@@ -1780,7 +1780,6 @@ class BGQsim(Simulator):
         pass
     post_simulation_handling = exposed(post_simulation_handling)    
     
-    
     ### io-aware job scheduling related stuff########
     def get_running_job_io_usage(self):
         """calculate aggregate I/O comsumption of all running jobs"""
