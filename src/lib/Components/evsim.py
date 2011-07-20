@@ -178,15 +178,17 @@ class EventSimulator(Component):
     
     def adjust_event_time(self, eventtype, old_time, new_time):
         '''change the time stamp of an event from old_time to new_time'''
-        print "adjusting event time: old_time = %s, new_time = %s" % (old_time, new_time)
+        #print "adjusting event time: old_time = %s, new_time = %s" % (old_time, new_time)
         pos = self.events_length()
         while old_time < self.event_list[pos-1].get('unixtime'):
             pos = pos - 1
         current_event = self.event_list[pos-1]
-        if current_event.get('unixtime') == old_time and current_event.get('type'):
+        if current_event.get('unixtime') == old_time and current_event.get('type') == eventtype:
             new_event = copy.deepcopy(current_event)
-            current_event['type'] = "x"
+            self.event_list.remove(current_event)
+            #current_event['type'] = "x"
             new_event['unixtime'] = new_time
+
             self.add_event(new_event)
     adjust_event_time = exposed(adjust_event_time)   
             
@@ -249,6 +251,7 @@ class EventSimulator(Component):
     
     def clock_increment(self):
         '''the current time stamp increments by 1'''
+        print "time_stamp: ", self.time_stamp,"   event_list length: ", len(self.event_list)-1
         if self.time_stamp < len(self.event_list) - 1:
             self.time_stamp += 1
             if SHOW_SCREEN_LOG:

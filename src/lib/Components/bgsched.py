@@ -237,7 +237,7 @@ class Job (ForeignData):
         "nodes", "location", "jobid", "state", "index", "walltime", "queue", "user", "submittime", 
         "starttime", "project", 'is_runnable', 'is_active', 'has_resources', "score", 'attrs', 
         'walltime_p',   #*AdjEst*
-        'self.io_amount', 'self.io_type', 'self.io_ratio', 'self.io_pattern',
+        'self.io_amount', 'self.io_start', 'self.io_end', 'self.io_type', 'self.io_ratio', 'self.io_pattern',
     ]
     
     def __init__ (self, spec):
@@ -263,6 +263,8 @@ class Job (ForeignData):
         self.score = spec.pop("score", 0.0)
         self.attrs = spec.pop("attrs", {})
         self.io_amount = spec.pop("io_amount", 0)
+        self.io_start = spec.pop("io_start", 0)
+        self.io_end = spec.pop("io_end", 0)
         self.io_type = spec.pop("io_type", 0)
         self.io_ratio = spec.pop("io_ratio", 0)
         self.io_pattern = spec.pop("io_pattern", 0)
@@ -278,7 +280,7 @@ class JobDict(ForeignDataDict):
                   'walltime', 'queue', 'user', 'submittime', 'starttime', 'project',
                   'is_runnable', 'is_active', 'has_resources', 'score', 'attrs', 
                   'walltime_p',  #*AdjEst*
-                  'self.io_amount', 'self.io_type', 'self.io_ratio', 'self.io_pattern',
+                  'self.io_amount', 'self.io_start', 'self.io_end', 'self.io_type', 'self.io_ratio', 'self.io_pattern',
                   ]
     def __init__(self, queue_manager_name):
         self.queue_manager_name = queue_manager_name

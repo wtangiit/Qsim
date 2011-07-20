@@ -247,7 +247,7 @@ class BGQsim(Simulator):
         if type not in SET_event:
             print "invalid event type,", type
             return
-        
+         
         evspec = {}
         evspec['jobid'] = info.get('jobid', 0)
         evspec['type'] = type
@@ -299,7 +299,11 @@ class BGQsim(Simulator):
             elif eventtype == "O": #starting I/O
                 message = "%s;O;%s;queue=%s qtime=%s Resource_List.nodect=%s Resource_List.walltime=%s start=%s compend=%f exec_host=%s comp_ratio=%s" % \
                 (timestamp, spec['jobid'], spec['queue'], spec['submittime'], spec['nodes'], log_walltime, spec['start_time'], 
-                 date_to_sec(timestamp), ":".join(spec['location']), 1 - spec['io_ratio'],)
+                 date_to_sec(timestamp), ":".join(spec['location']), 1 - spec['io_ratio'])
+            elif eventtype == "C": #end of I/O
+                message = "%s;C;%s;queue=%s qtime=%s Resource_List.nodect=%s Resource_List.walltime=%s start=%s compend=%f exec_host=%s" % \
+                (timestamp, spec['jobid'], spec['queue'], spec['submittime'], spec['nodes'], log_walltime, spec['start_time'],
+                 date_to_sec(timestamp), ":".join(spec['location']))
             else:
                 print "invalid event type, type=", eventtype
                 return
@@ -460,7 +464,7 @@ class BGQsim(Simulator):
                         
             cur_event = self.event_manager.get_current_event_type()
                         
-            if cur_event in ["Q", "E", "e"]:
+            if cur_event in ["Q", "E", "e", "d"]:
                 self.update_job_states(specs, {}, cur_event)
             
             self.compute_utility_scores()
@@ -556,6 +560,18 @@ class BGQsim(Simulator):
                 #log the job end event
                 jobspec = io_job.to_rx()                
                 self.log_job_event("O", self.get_current_time_date(), jobspec)
+                
+            elif cur_event == "d": # Job (Id) complete io activity, back to computing
+                io_job = self.get_live_job_by_id(Id)
+                
+                if io_job == None:
+                    continue
+                
+                io_job.doing_io = False
+                
+                #log the job end event
+                jobspec = io_job.to_rx()
+                self.log_job_event("C", self.get_current_time_date(), jobspec)
                                 
         
         if not self.cluster_job_trace and not self.batch:
@@ -694,7 +710,6 @@ class BGQsim(Simulator):
         updates = {}
         
         #print "enter run_job_updates, jobspec=", jobspec
-        
         start = self.get_current_time_sec()
         updates['start_time'] = start
         updates['starttime'] = start
@@ -706,17 +721,32 @@ class BGQsim(Simulator):
         if jobspec['last_hold'] > 0:
             updates['hold_time'] = jobspec['hold_time'] + self.get_current_time_sec() - jobspec['last_hold']
              
-        
         location = newattr['location']
         duration = jobspec['remain_time']
         
+        nodes = int(jobspec.get("nodes", 0))
+        
         io_ratio = jobspec.get('io_ratio', 0)
         if io_ratio > 0:
-            comput_time = duration * (1 - io_ratio)
+            comput_time = duration * (1 - io_ratio)* random.random()
             comp_end = start + comput_time
+            
+            io_time = duration * io_ratio
+            io_amount = io_time * MAX_PER_NODE_IO_CAPACITY * nodes 
             self.insert_time_stamp(comp_end, "e", {'jobid':jobspec['jobid']})
         
+        ### update io amount and end time
+        io_end = comp_end + io_time
+        updates['io_start'] = comp_end
+        updates['io_amount'] = io_amount
+        updates['io_end'] = io_end
         
+        print "starting io: ", comp_end
+        print "duration: ", duration
+        print "ending io: ", io_end
+        print ""
+        
+        ### insert job end event
         end = start + duration
         updates['end_time'] = end
         self.insert_time_stamp(end, "E", {'jobid':jobspec['jobid']})
@@ -1786,22 +1816,40 @@ class BGQsim(Simulator):
         total_bandwidth = 0
         iojobs = []
                 
-        for runningjob in self.running_jobs:
+        for runningjob in self.running_jobs:            
             node = int(runningjob.nodes)
             doing_io = runningjob.doing_io
             if doing_io:
-                total_bandwidth += MAX_PER_NODE_IO_CAPACITY * node
-                iojobs.append(runningjob)
-                print runningjob.jobid, "is doing io"
-            else:
-                print runningjob.jobid, "is not doing io"
+                ### log job with i/o endings
+                if runningjob.io_amount == 0:
+                    runningjob.doing_io = False
+                    jobspec = runningjob.to_rx()
+                    self.log_job_event("C", self.get_current_time_date(), jobspec)
+                else:
+                    total_bandwidth += MAX_PER_NODE_IO_CAPACITY * node
+                    iojobs.append(runningjob)
+                #print runningjob.jobid, "is doing io"
+            #else:
+                #print runningjob.jobid, "is not doing io"
                 
         rate = total_bandwidth / MAX_SYSTEM_IO_CAPACITY        
         print "rate=",rate
         if rate > 1:
             for iojob in iojobs:
+                node = int(iojobs.nodes)
                 old_endtime = iojob.end_time
-                new_endtime = old_endtime + 60*(rate-1)
+                
+                # adujust remaining io amount
+                new_bandwidth = MAX_PER_NODE_IO_CAPACITY * node / rate
+                new_io_end = self.get_current_time_date() + iojob.io_amount / new_bandwidth
+                
+                new_endtime = oldendtime + (new_io_end - iojob.io_end)
+                
+                iojob.io_amount = iojob.io_amount - new_bandwidth*IOMON_INTERVAL
+                
+                if iojob.io_amount < 0:
+                    iojob.io_amount = 0
+                
                 iojob.end_time = new_endtime
                 self.event_manager.adjust_event_time("E", old_endtime, new_endtime)    
             
