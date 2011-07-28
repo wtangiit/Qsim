@@ -25,6 +25,7 @@ from Cobalt.Components.base import exposed, query, automatic, locking
 from Cobalt.Components.cqm import QueueDict, Queue
 from Cobalt.Components.simulator import Simulator
 from Cobalt.Components.iomonitor import MAX_SYSTEM_IO_CAPACITY, MAX_PER_NODE_IO_CAPACITY
+from Cobalt.Components.evsim import IOMON_INTERVAL
 from Cobalt.Data import Data, DataList
 from Cobalt.Exceptions import ComponentLookupError
 from Cobalt.Proxy import ComponentProxy, local_components
@@ -212,6 +213,10 @@ class BGQsim(Simulator):
         self.reset_rack_matrix()
         
         self.batch = kwargs.get("batch", False)
+        
+        #initialize iomon logger
+        self.iomon_logger = PBSlogger(self.output_log+"-iomon_runtime")
+        self.jobend_adjust_logger = PBSlogger(self.output_log+"-job_end_adjust")
             
 ####----print some configuration            
         if self.wass_scheme:
@@ -1832,28 +1837,38 @@ class BGQsim(Simulator):
             #else:
                 #print runningjob.jobid, "is not doing io"
                 
-        rate = total_bandwidth / MAX_SYSTEM_IO_CAPACITY        
+        rate = total_bandwidth / MAX_SYSTEM_IO_CAPACITY   
+        
+        job_ids =[]
+        for iojob in iojobs:
+            job_ids.append(iojob.to_rx()['jobid'])
+            
+        self.iomon_logger.LogMessage(job_ids)
+        self.iomon_logger.LogMessage(rate)     
         print "rate=",rate
+        
         if rate > 1:
             for iojob in iojobs:
-                node = int(iojobs.nodes)
+                node = int(iojob.nodes)
                 old_endtime = iojob.end_time
                 
                 # adujust remaining io amount
                 new_bandwidth = MAX_PER_NODE_IO_CAPACITY * node / rate
-                new_io_end = self.get_current_time_date() + iojob.io_amount / new_bandwidth
+                new_io_end = self.get_current_time_sec()+ iojob.io_amount / new_bandwidth
                 
-                new_endtime = oldendtime + (new_io_end - iojob.io_end)
-                
-                iojob.io_amount = iojob.io_amount - new_bandwidth*IOMON_INTERVAL
+                new_endtime = old_endtime + (new_io_end - iojob.io_end)
                 
                 if iojob.io_amount < 0:
                     iojob.io_amount = 0
                 
                 iojob.end_time = new_endtime
                 self.event_manager.adjust_event_time("E", old_endtime, new_endtime)    
+                self.iomon_logger.LogMessage("%s, io_amount:%s, bandwidth:%s, nodes:%s, oldtime:%s, newtime:%s" % (iojob.to_rx()["jobid"], iojob.io_amount, new_bandwidth, node, old_endtime, new_endtime))
+                
+                iojob.io_amount = iojob.io_amount - new_bandwidth*IOMON_INTERVAL
+    
+            self.iomon_logger.LogMessage("")
             
         return total_bandwidth
     get_running_job_io_usage = exposed(get_running_job_io_usage)
               
- 
